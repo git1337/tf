@@ -22,7 +22,7 @@ def main():
 	lose = 0
 	draw = 0
 	
-	historic = []
+	historic = []#deque(maxlen=2*size)
 	
 	while (textInput != "exit"):
 		textInput = input("It's your turn: ")
@@ -33,9 +33,11 @@ def main():
 		except:
 			continue
 		total += 1
-			
-		if (total > 2*size):
-			computer = play(predict(historic))			
+		
+		if (total > 2*size):			
+			computer = play(predict(historic))
+			historic.pop(0)
+			historic.pop(0)
 		else:
 			computer = random.randint(1, 3)
 		print("My choice: %d" % computer)
@@ -69,8 +71,7 @@ def getWinner(player, computer):
 def generateTrainingSet(historic):
 	x = []
 	y = []
-	
-	for i in range(size, len(historic) - size, 2):
+	for i in range(size, len(historic), 2):
 		x.append(historic[i - size:i])
 		y.append(historic[i] - 1)
 		
