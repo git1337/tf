@@ -1,18 +1,20 @@
 import tensorflow as tf
 import pandas as pd
 import random
+from collections import deque
 
 size = 6
 
-features = []
+column_names = []
 my_feature_columns = []
 for i in range(size):
 	key = "feature_%d" % i
 	my_feature_columns.append(tf.feature_column.numeric_column(key=key))
-	features.append(key)
+	column_names.append(key)
 
 def main():
 	print("Let's play!")
+	print("Choose a number between 1 and 3.")
 	textInput = ""
 	
 	total = 0
@@ -31,15 +33,14 @@ def main():
 		except:
 			continue
 		total += 1
-		
-		historic.append(player)
-		
-		if (total > 4*size):
-			computer = play(predict(historic))
+			
+		if (total > 2*size):
+			computer = play(predict(historic))			
 		else:
-			computer = random.randint(1,3)
+			computer = random.randint(1, 3)
 		print("My choice: %d" % computer)
 		
+		historic.append(player)
 		historic.append(computer)
 		
 		result = getWinner(player, computer)
@@ -71,14 +72,10 @@ def generateTrainingSet(historic):
 	
 	for i in range(size, len(historic) - size, 2):
 		x.append(historic[i - size:i])
-		y.append(historic[i])
+		y.append(historic[i] - 1)
 		
-	train_x = pd.DataFrame(data=x,columns=features)
+	train_x = pd.DataFrame(data=x,columns=column_names)
 	train_y = pd.Series(data=y,name="class")
-	
-	print(historic)
-	print(train_x)
-	print(train_y)
 	
 	return train_x, train_y
 	
@@ -100,17 +97,30 @@ def predict(historic):
 		n_classes=3)
 	# Train the Model.
 	classifier.train(
-		input_fn=lambda:train_input_fn(train_x, train_y, 5))
+		input_fn=lambda:train_input_fn(train_x, train_y, 100), steps=1000)
+	
+	predict_x = {}
+	
+	for idx, val in enumerate(column_names):
+		predict_x[val] = [historic[len(historic) - size + idx]]
+	
+	predictions = classifier.predict(input_fn=lambda:eval_input_fn(predict_x,labels=None,batch_size=100))
+	
+	for pred_dict, expec in zip(predictions, ['1']):
+		class_id = pred_dict['class_ids'][0]
+		probability = pred_dict['probabilities'][class_id]
+		
+		template = ('\nPrediction is "{}" ({:.1f}%)"')
+		print(template.format(class_id + 1, 100 * probability))
+		return class_id + 1
 
 def train_input_fn(features, labels, batch_size):
 	"""An input function for training"""
 	# Convert the inputs to a Dataset.
-	print(dict(features))
 	dataset = tf.data.Dataset.from_tensor_slices((dict(features), labels))
-	print(dataset)
-	exit()
+
 	# Shuffle, repeat, and batch the examples.
-	#dataset = dataset.shuffle(1000).repeat().batch(batch_size)
+	dataset = dataset.shuffle(1000).repeat().batch(batch_size)
 
 	# Return the dataset.
 	return dataset
